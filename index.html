@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>eFootball League Manager - Live Firebase Edition</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI','Poppins',system-ui,sans-serif;background:#0a0a0f;color:#fff;min-height:100vh}
+    .app{width:100%;max-width:500px;margin:0 auto;min-height:100vh;background:#0f0f14;position:relative;padding-bottom:80px}
+    .header{background:linear-gradient(135deg, #0a0a0f 0%, #14141c 100%);padding:20px 16px 0;border-bottom:2px solid #2a2a35;position:sticky;top:0;z-index:10}
+    .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+    .efootball-logo{display:flex;align-items:center;gap:12px;position:relative}
+    .logo-icon{width:48px;height:48px;background:linear-gradient(135deg, #ff3366 0%, #ff6b3d 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 0 20px rgba(255,51,102,0.3);animation: pulse 2s infinite}
+    .logo-icon::before{content:'';position:absolute;width:38px;height:38px;border:2px solid rgba(255,255,255,0.3);border-radius:50%;animation: ring 2s infinite}
+    .logo-icon-inner{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));position:relative;z-index:2}
+    .logo-text-main{font-size:22px;font-weight:900;background:linear-gradient(135deg, #fff 0%, #ff3366 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-0.5px}
+    .logo-text-sub{font-size:9px;color:#ff3366;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-top:-2px}
+    @keyframes pulse{0%,100%{box-shadow:0 0 20px rgba(255,51,102,0.3)}50%{box-shadow:0 0 30px rgba(255,51,102,0.6)}}
+    @keyframes ring{0%,100%{transform:scale(1);opacity:0.3}50%{transform:scale(1.1);opacity:0.1}}
+    .sync-btn{background:rgba(255,255,255,0.05);border:1px solid #2a2a35;color:#8b8b9f;border-radius:20px;padding:8px 12px;font-size:12px;cursor:pointer;transition:all 0.3s}
+    .sync-btn:hover{background:rgba(255,51,102,0.1);border-color:#ff3366}
+    .auth-buttons{display:flex;gap:8px}
+    .login-btn{background:linear-gradient(135deg, #ff3366, #ff6b3d);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;transition:transform 0.2s}
+    .login-btn:hover{transform:scale(1.05)}
+    .logout-btn{background:rgba(255,51,102,0.2);color:#ff3366;border:1px solid #ff3366;border-radius:20px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer}
+    .user-banner{background:linear-gradient(90deg, rgba(255,51,102,0.1) 0%, rgba(255,107,61,0.05) 100%);border-bottom:1px solid #2a2a35;padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px}
+    .user-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;background:linear-gradient(135deg, #ff3366, #ff6b3d);color:#fff}
+    .tabs{display:flex;overflow-x:auto;gap:4px;padding:8px 0 0}
+    .tab{flex:1;padding:12px 8px;text-align:center;font-size:13px;font-weight:700;color:#6b6b80;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.3s}
+    .tab.active{color:#ff3366;border-bottom-color:#ff3366}
+    .content{padding:0}
+    .page{display:none}
+    .page.active{display:block}
+    .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:16px}
+    .team-card{background:linear-gradient(135deg, #14141c 0%, #1a1a24 100%);border-radius:14px;padding:16px;text-align:center;border:1px solid #2a2a35;cursor:pointer;transition:all 0.3s}
+    .team-card:hover{transform:translateY(-4px);border-color:#ff3366}
+    .team-logo-large{width:70px;height:70px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px;background:linear-gradient(135deg, #0a0a0f, #14141c);border:2px solid #ff3366}
+    .fixture-card{background:linear-gradient(135deg, #14141c 0%, #1a1a24 100%);margin:0 12px 12px;border-radius:14px;overflow:hidden;border:1px solid #2a2a35;transition:all 0.3s}
+    .fixture-card:hover{border-color:#ff3366}
+    .fixture-header{background:linear-gradient(90deg, #0a0a0f, #14141c);padding:10px 12px;font-size:11px;color:#8b8b9f;border-bottom:1px solid #2a2a35;display:flex;justify-content:space-between}
+    .fixture-week{background:linear-gradient(135deg, #ff3366, #ff6b3d);color:#fff;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700}
+    .fixture-body{display:flex;align-items:center;padding:20px 16px;gap:12px}
+    .fixture-team{flex:1;text-align:center}
+    .fixture-logo{width:55px;height:55px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:28px;background:linear-gradient(135deg, #0a0a0f, #14141c);border:2px solid #2a2a35}
+    .fixture-score{font-size:28px;font-weight:900;min-width:80px;text-align:center;background:linear-gradient(135deg, #0a0a0f, #14141c);padding:12px;border-radius:12px;color:#ff3366}
+    .fixture-actions{padding:12px;border-top:1px solid #2a2a35;display:flex;gap:8px}
+    .fixture-actions button{flex:1;background:linear-gradient(135deg, #ff3366, #ff6b3d);color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer}
+    .fixture-actions button.secondary{background:rgba(255,51,102,0.2);color:#ff3366;border:1px solid #ff3366}
+    .league-table{background:linear-gradient(135deg, #14141c 0%, #1a1a24 100%);margin:12px;border-radius:14px;overflow-x:auto}
+    .table-header{display:grid;grid-template-columns:40px 1fr 45px 45px 45px 45px 50px 55px;gap:4px;padding:12px;font-size:10px;color:#8b8b9f;font-weight:700;border-bottom:2px solid #ff3366}
+    .table-row{display:grid;grid-template-columns:40px 1fr 45px 45px 45px 45px 50px 55px;gap:4px;padding:12px;font-size:12px;border-bottom:1px solid #2a2a35;align-items:center}
+    .table-row.top{background:linear-gradient(90deg, rgba(255,51,102,0.1) 0%, rgba(255,107,61,0.05) 100%);border-left:3px solid #ff3366}
+    .team-info{display:flex;align-items:center;gap:8px}
+    .team-mini-logo{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:linear-gradient(135deg, #0a0a0f, #14141c);border:1px solid #ff3366}
+    .stats-highlight{color:#ff3366;font-weight:800}
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:200;align-items:center;justify-content:center;padding:16px}
+    .modal-bg.open{display:flex}
+    .modal{background:linear-gradient(135deg, #14141c 0%, #1a1a24 100%);border-radius:22px;width:100%;max-width:450px;max-height:90vh;overflow-y:auto;padding:24px;border:1px solid #ff3366}
+    .modal-title{font-size:22px;font-weight:800;margin-bottom:20px;text-align:center;background:linear-gradient(135deg, #ff3366, #ff6b3d);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .match-teams{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px 0;padding:20px;background:linear-gradient(135deg, #0a0a0f, #14141c);border-radius:16px}
+    .match-team-logo{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:36px;background:linear-gradient(135deg, #0a0a0f, #14141c);border:2px solid #ff3366}
+    .score-input-group{display:flex;gap:20px;justify-content:center;margin:20px 0}
+    .score-box input{width:100%;background:#0a0a0f;border:2px solid #2a2a35;color:#fff;border-radius:12px;padding:16px;font-size:32px;font-weight:900;text-align:center}
+    .score-box input:focus{border-color:#ff3366;outline:none}
+    .player-stats-section{margin-top:20px;padding-top:20px;border-top:1px solid #2a2a35}
+    .player-stats-header{display:flex;justify-content:space-between;margin-bottom:12px}
+    .player-stats-header h4{font-size:14px;color:#ff3366}
+    .add-player-btn{background:transparent;border:1px dashed #ff3366;color:#ff3366;border-radius:20px;padding:6px 12px;font-size:11px;cursor:pointer}
+    .player-row{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+    .player-row input{flex:1;min-width:100px;background:#0a0a0f;border:1px solid #2a2a35;color:#fff;border-radius:8px;padding:10px}
+    .player-row input.small{width:70px;flex:none;text-align:center}
+    .btn-primary{background:linear-gradient(135deg, #ff3366, #ff6b3d);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:900;cursor:pointer;width:100%}
+    .btn-secondary{background:transparent;color:#8b8b9f;border:1px solid #2a2a35;border-radius:12px;padding:12px;font-size:13px;cursor:pointer;width:100%;margin-top:8px}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:linear-gradient(135deg, #14141c, #1a1a24);border:1px solid #ff3366;padding:12px 20px;border-radius:20px;z-index:300;transition:transform 0.3s}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    .empty{text-align:center;padding:60px 20px;color:#8b8b9f}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="modal-bg" id="auth-modal"><div class="modal"><div class="modal-title">⚽ eFOOTBALL LIVE</div><div class="input-group" style="margin-bottom:16px"><label style="display:block;font-size:11px;color:#8b8b9f">EMAIL</label><input type="email" id="auth-email" placeholder="your@email.com" style="width:100%;background:#0a0a0f;border:1px solid #2a2a35;color:#fff;border-radius:10px;padding:12px"></div><div class="input-group" style="margin-bottom:16px"><label style="display:block;font-size:11px;color:#8b8b9f">PASSWORD</label><input type="password" id="auth-pwd" placeholder="min 6 characters" style="width:100%;background:#0a0a0f;border:1px solid #2a2a35;color:#fff;border-radius:10px;padding:12px"></div><button class="btn-primary" onclick="handleFirebaseAuth()">LOGIN / SIGN UP</button><button class="btn-secondary" onclick="closeAuthModal()">CANCEL</button></div></div>
+  <div class="modal-bg" id="team-modal"><div class="modal"><div class="modal-title">⚽ REGISTER TEAM</div><div class="input-group" style="margin-bottom:16px"><label style="display:block;font-size:11px">TEAM NAME</label><input type="text" id="team-name" placeholder="e.g., AC Milan" style="width:100%;background:#0a0a0f;border:1px solid #2a2a35;color:#fff;border-radius:10px;padding:12px"></div><div class="input-group" style="margin-bottom:16px"><label style="display:block;font-size:11px">TEAM LOGO (EMOJI)</label><input type="text" id="team-logo" placeholder="⚽" maxlength="2" style="width:100%;background:#0a0a0f;border:1px solid #2a2a35;color:#fff;border-radius:10px;padding:12px"></div><div id="logo-preview" style="width:80px;height:80px;border-radius:50%;margin:10px auto;display:flex;align-items:center;justify-content:center;font-size:40px;background:linear-gradient(135deg, #0a0a0f, #14141c);border:2px solid #ff3366">⚽</div><button class="btn-primary" onclick="registerTeamFirebase()">REGISTER TEAM</button><button class="btn-secondary" onclick="closeTeamModal()">CANCEL</button></div></div>
+  <div class="modal-bg" id="result-modal"><div class="modal"><div class="modal-title" id="result-modal-title">⚽ RECORD RESULT</div><div id="result-match-info"></div><div class="score-input-group"><div class="score-box"><label id="home-team-label">HOME</label><input type="number" id="home-score" min="0" value="0"></div><div class="score-box"><label>VS</label><input type="number" id="away-score" min="0" value="0"></div></div><div class="player-stats-section"><div class="player-stats-header"><h4>⭐ PLAYER STATISTICS</h4><button class="add-player-btn" onclick="addPlayerStatRow()">+ ADD PLAYER</button></div><div id="player-stats-container"></div></div><button class="btn-primary" onclick="submitMatchResultFirebase()">SAVE RESULT</button><button class="btn-secondary" onclick="closeResultModal()">CANCEL</button></div></div>
+  <div class="modal-bg" id="history-modal"><div class="modal"><div class="modal-title">⚽ MATCH HISTORY</div><div id="match-history-list"></div><button class="btn-secondary" onclick="closeHistoryModal()">CLOSE</button></div></div>
+
+  <div class="header"><div class="header-top"><div class="efootball-logo"><div class="logo-icon"><div class="logo-icon-inner">⚽</div></div><div class="logo-text"><div class="logo-text-main">eFOOTBALL</div><div class="logo-text-sub">LIVE LEAGUE</div></div></div><div class="header-right"><button class="sync-btn" onclick="syncData()">🔄 SYNC</button><div class="auth-buttons" id="auth-buttons"><button class="login-btn" onclick="openAuthModal()">LOGIN</button></div></div></div><div class="user-banner" id="user-banner" style="display:none"><div class="user-avatar" id="user-avatar"></div><span>WELCOME, <strong id="user-name"></strong></span><button class="logout-btn" onclick="logout()" style="margin-left:auto;padding:6px 12px">LOGOUT</button></div><div class="tabs"><div class="tab active" onclick="switchTab('teams')">🏆 TEAMS</div><div class="tab" onclick="switchTab('fixtures')">📅 FIXTURES</div><div class="tab" onclick="switchTab('table')">📊 TABLE</div><div class="tab" onclick="switchTab('my-team')">⭐ MY TEAM</div><div class="tab" onclick="openHistoryModal()">📜 HISTORY</div></div></div>
+  <div class="content"><div class="page active" id="page-teams"><div id="teams-list"></div></div><div class="page" id="page-fixtures"><div id="fixtures-list"></div></div><div class="page" id="page-table"><div class="league-table" id="league-table"></div></div><div class="page" id="page-my-team"><div id="my-team-info"></div></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  // FIREBASE CONFIG (Replace with your own Firebase project config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDummyPlaceholderReplaceWithYourFirebaseKey",  // <-- REPLACE
+    authDomain: "efootball-live.firebaseapp.com",
+    projectId: "efootball-live",
+    storageBucket: "efootball-live.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abc123def"
+  };
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  
+  let currentFirebaseUser = null;
+  let userTeamId = null;
+  let playerStatsCounter = 0;
+  let currentEditingFixture = null;
+  let fixturesUnsubscribe = null;
+  let teamsUnsubscribe = null;
+
+  function showToast(msg, type) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show ' + (type||''); setTimeout(()=>t.classList.remove('show'),2500); }
+  function openAuthModal() { document.getElementById('auth-modal').classList.add('open'); }
+  function closeAuthModal() { document.getElementById('auth-modal').classList.remove('open'); }
+  function closeTeamModal() { document.getElementById('team-modal').classList.remove('open'); }
+  function closeResultModal() { document.getElementById('result-modal').classList.remove('open'); currentEditingFixture = null; }
+  function closeHistoryModal() { document.getElementById('history-modal').classList.remove('open'); }
+
+  async function handleFirebaseAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const pwd = document.getElementById('auth-pwd').value;
+    if (!email || pwd.length < 6) { showToast('Valid email & password (6+ chars)','error'); return; }
+    try {
+      let userCred;
+      try { userCred = await auth.signInWithEmailAndPassword(email, pwd); } catch(e) {
+        if(e.code === 'auth/user-not-found') userCred = await auth.createUserWithEmailAndPassword(email, pwd);
+        else throw e;
+      }
+      currentFirebaseUser = userCred.user;
+      await loadUserTeam();
+      closeAuthModal();
+      updateUIAuth();
+      startFirebaseListeners();
+      showToast(`Welcome ${currentFirebaseUser.email}! League data live.`,'success');
+    } catch(err) { showToast('Auth error: '+err.message,'error'); }
+  }
+
+  async function loadUserTeam() {
+    if(!currentFirebaseUser) return;
+    const snapshot = await db.collection('teams').where('ownerId', '==', currentFirebaseUser.uid).limit(1).get();
+    if(!snapshot.empty) userTeamId = snapshot.docs[0].id;
+    else userTeamId = null;
+  }
+
+  async function logout() {
+    await auth.signOut();
+    currentFirebaseUser = null; userTeamId = null;
+    if(fixturesUnsubscribe) fixturesUnsubscribe();
+    if(teamsUnsubscribe) teamsUnsubscribe();
+    updateUIAuth();
+    showToast('Logged out','success');
+  }
+
+  function updateUIAuth() {
+    const authDiv = document.getElementById('auth-buttons');
+    const banner = document.getElementById('user-banner');
+    if(currentFirebaseUser) {
+      authDiv.style.display = 'none';
+      banner.style.display = 'flex';
+      document.getElementById('user-name').textContent = currentFirebaseUser.email.split('@')[0];
+      document.getElementById('user-avatar').textContent = currentFirebaseUser.email[0].toUpperCase();
+    } else {
+      authDiv.style.display = 'flex';
+      banner.style.display = 'none';
+      userTeamId = null;
+    }
+    renderAll();
+  }
+
+  async function registerTeamFirebase() {
+    if(!currentFirebaseUser) { showToast('Login first','error'); openAuthModal(); return; }
+    const name = document.getElementById('team-name').value.trim();
+    const logo = document.getElementById('team-logo').value.trim() || '⚽';
+    if(!name) { showToast('Team name required','error'); return; }
+    const existing = await db.collection('teams').where('name', '==', name).get();
+    if(!existing.empty) { showToast('Team name exists','error'); return; }
+    const newTeam = { name, logo: logo.slice(0,2), ownerId: currentFirebaseUser.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp(), stats: { played:0, won:0, drawn:0, lost:0, gf:0, ga:0, pts:0 } };
+    const docRef = await db.collection('teams').add(newTeam);
+    userTeamId = docRef.id;
+    await generateFixturesGlobal();
+    closeTeamModal();
+    showToast(`Team ${name} registered!`,'success');
+  }
+
+  async function generateFixturesGlobal() {
+    const teamsSnap = await db.collection('teams').get();
+    const allTeams = teamsSnap.docs.map(doc=>({id:doc.id, ...doc.data()}));
+    if(allTeams.length < 2) return;
+    // delete old fixtures
+    const oldFixtures = await db.collection('fixtures').get();
+    for(let doc of oldFixtures.docs) await doc.ref.delete();
+    const newFixtures = [];
+    for(let i=0;i<allTeams.length;i++) {
+      for(let j=0;j<allTeams.length;j++) {
+        if(i!==j) newFixtures.push({ homeTeamId: allTeams[i].id, awayTeamId: allTeams[j].id, week: Math.floor(newFixtures.length / (allTeams.length-1)) +1, played: false, homeScore: null, awayScore: null, date: null, playerStats: [] });
+      }
+    }
+    for(let i=newFixtures.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [newFixtures[i],newFixtures[j]]=[newFixtures[j],newFixtures[i]]; }
+    for(let f of newFixtures) await db.collection('fixtures').add(f);
+  }
+
+  async function updateAllTeamStats() {
+    const fixturesSnap = await db.collection('fixtures').get();
+    const teamsSnap = await db.collection('teams').get();
+    const teamsMap = {};
+    teamsSnap.docs.forEach(doc=>{ teamsMap[doc.id] = {id:doc.id, ...doc.data(), stats: {played:0,won:0,drawn:0,lost:0,gf:0,ga:0,pts:0} }; });
+    fixturesSnap.docs.forEach(doc=>{
+      const f = doc.data();
+      if(f.played && f.homeScore!==null){
+        const home = teamsMap[f.homeTeamId]; const away = teamsMap[f.awayTeamId];
+        if(home && away){
+          home.stats.played++; away.stats.played++;
+          home.stats.gf+=f.homeScore; home.stats.ga+=f.awayScore;
+          away.stats.gf+=f.awayScore; away.stats.ga+=f.homeScore;
+          if(f.homeScore>f.awayScore){ home.stats.won++; home.stats.pts+=3; away.stats.lost++; }
+          else if(f.homeScore<f.awayScore){ away.stats.won++; away.stats.pts+=3; home.stats.lost++; }
+          else { home.stats.drawn++; away.stats.drawn++; home.stats.pts+=1; away.stats.pts+=1; }
+        }
+      }
+    });
+    for(let id in teamsMap){ await db.collection('teams').doc(id).update({ stats: teamsMap[id].stats }); }
+  }
+
+  async function submitMatchResultFirebase() {
+    if(!currentEditingFixture || !currentEditingFixture.id) return;
+    const homeScore = parseInt(document.getElementById('home-score').value);
+    const awayScore = parseInt(document.getElementById('away-score').value);
+    if(isNaN(homeScore)||isNaN(awayScore)){ showToast('Enter valid scores','error'); return; }
+    const players = [];
+    document.querySelectorAll('#player-stats-container .player-row').forEach(row=>{
+      const name = row.querySelector('.player-name')?.value.trim();
+      if(name){
+        players.push({ name, goals: parseInt(row.querySelector('input[placeholder="G"]')?.value)||0, assists: parseInt(row.querySelector('input[placeholder="A"]')?.value)||0, rating: row.querySelector('select')?.value||null });
+      }
+    });
+    await db.collection('fixtures').doc(currentEditingFixture.id).update({ played: true, homeScore, awayScore, date: firebase.firestore.FieldValue.serverTimestamp(), playerStats: players, recordedBy: currentFirebaseUser.uid });
+    await updateAllTeamStats();
+    closeResultModal();
+    showToast('Result saved! Live update to all friends','success');
+  }
+
+  async function editMatchResultFirebase(fixtureId) {
+    if(!currentFirebaseUser) return;
+    const fixtureDoc = await db.collection('fixtures').doc(fixtureId).get();
+    const f = fixtureDoc.data();
+    if(f.homeTeamId !== userTeamId && f.awayTeamId !== userTeamId) { showToast('Can only edit your matches','error'); return; }
+    await db.collection('fixtures').doc(fixtureId).update({ played: false, homeScore: null, awayScore: null });
+    await updateAllTeamStats();
+    showToast('Match cleared, you can re-enter result','success');
+  }
+
+  function openResultModalFirebase(fixtureId, fixtureData) {
+    if(!currentFirebaseUser){ showToast('Login first','error'); openAuthModal(); return; }
+    if(fixtureData.homeTeamId !== userTeamId && fixtureData.awayTeamId !== userTeamId){ showToast('Only your matches','error'); return; }
+    if(fixtureData.played){ showToast('Already played','error'); return; }
+    currentEditingFixture = { id: fixtureId, ...fixtureData };
+    document.getElementById('result-modal-title').textContent = `⚽ RECORD RESULT`;
+    document.getElementById('result-match-info').innerHTML = `<div class="match-teams">...</div>`;
+    document.getElementById('home-score').value = ''; document.getElementById('away-score').value = '';
+    document.getElementById('player-stats-container').innerHTML = ''; playerStatsCounter=0;
+    document.getElementById('result-modal').classList.add('open');
+  }
+
+  function addPlayerStatRow(){
+    const container = document.getElementById('player-stats-container');
+    const rowId = `pr_${playerStatsCounter++}`;
+    const row = document.createElement('div'); row.className='player-row'; row.id=rowId;
+    row.innerHTML = `<input type="text" placeholder="Player name" class="player-name"><input type="number" placeholder="G" class="small" min="0" value="0" style="width:60px"><input type="number" placeholder="A" class="small" min="0" value="0" style="width:60px"><select style="background:#0a0a0f;border:1px solid #2a2a35;color:#fff;border-radius:8px;width:70px"><option value="">Rtg</option><option>10</option><option>9</option><option>8</option><option>7</option><option>6</option></select><button class="remove-player" onclick="this.closest('.player-row').remove()">✖</button>`;
+    container.appendChild(row);
+  }
+
+  function startFirebaseListeners(){
+    if(teamsUnsubscribe) teamsUnsubscribe();
+    if(fixturesUnsubscribe) fixturesUnsubscribe();
+    teamsUnsubscribe = db.collection('teams').onSnapshot(()=>{ renderAll(); });
+    fixturesUnsubscribe = db.collection('fixtures').onSnapshot(async ()=>{
+      await updateAllTeamStats();
+      renderAll();
+    });
+  }
+
+  async function renderAll(){
+    const teamsSnap = await db.collection('teams').get();
+    let teamsArr = teamsSnap.docs.map(d=>({id:d.id, ...d.data()}));
+    const fixturesSnap = await db.collection('fixtures').get();
+    let fixturesArr = fixturesSnap.docs.map(d=>({id:d.id, ...d.data()}));
+    // compute standings
+    let teamsMap = {};
+    teamsArr.forEach(t=>{ teamsMap[t.id]={...t, stats:t.stats||{played:0,won:0,drawn:0,lost:0,gf:0,ga:0,pts:0}}; });
+    fixturesArr.forEach(f=>{
+      if(f.played && f.homeScore!==null){
+        let h=teamsMap[f.homeTeamId], a=teamsMap[f.awayTeamId];
+        if(h&&a){ h.stats.played++; a.stats.played++; h.stats.gf+=f.homeScore; h.stats.ga+=f.awayScore; a.stats.gf+=f.awayScore; a.stats.ga+=f.homeScore;
+          if(f.homeScore>f.awayScore){ h.stats.won++; h.stats.pts+=3; a.stats.lost++; }
+          else if(f.homeScore<f.awayScore){ a.stats.won++; a.stats.pts+=3; h.stats.lost++; }
+          else { h.stats.drawn++; a.stats.drawn++; h.stats.pts+=1; a.stats.pts+=1; }
+        }
+      }
+    });
+    let sortedTeams = Object.values(teamsMap).sort((a,b)=>b.stats.pts-a.stats.pts || (b.stats.gf-b.stats.ga)-(a.stats.gf-a.stats.ga));
+    // Render Teams
+    const teamsContainer = document.getElementById('teams-list');
+    if(teamsArr.length===0) teamsContainer.innerHTML='<div class="empty"><div>🏆</div><div>No teams yet. Register first!</div></div>';
+    else teamsContainer.innerHTML = `<div class="team-grid">${sortedTeams.map(t=>`<div class="team-card"><div class="team-logo-large">${t.logo||'⚽'}</div><div class="team-name-card">${escapeHtml(t.name)}</div><div class="team-stats">PTS: ${t.stats.pts} | GD: ${t.stats.gf-t.stats.ga}</div></div>`).join('')}</div>${!userTeamId?'<div style="padding:16px"><button class="btn-primary" onclick="openTeamModal()">+ REGISTER YOUR TEAM</button></div>':''}`;
+    // Fixtures
+    const fixtureContainer = document.getElementById('fixtures-list');
+    if(fixturesArr.length===0) fixtureContainer.innerHTML='<div class="empty">No fixtures, need 2+ teams</div>';
+    else{
+      const myFixtures = fixturesArr.filter(f=> userTeamId && (f.homeTeamId===userTeamId||f.awayTeamId===userTeamId));
+      const others = fixturesArr.filter(f=> !userTeamId || (f.homeTeamId!==userTeamId&&f.awayTeamId!==userTeamId));
+      const allFixtures = [...myFixtures,...others];
+      fixtureContainer.innerHTML = allFixtures.map(f=>{
+        const homeT = teamsMap[f.homeTeamId]; const awayT = teamsMap[f.awayTeamId];
+        if(!homeT||!awayT) return '';
+        const isMy = userTeamId && (f.homeTeamId===userTeamId||f.awayTeamId===userTeamId);
+        const canRecord = !f.played && isMy && currentFirebaseUser;
+        return `<div class="fixture-card"><div class="fixture-header"><span>WEEK ${f.week||1}</span><span class="fixture-week">${isMy?'YOUR MATCH':''}</span></div><div class="fixture-body"><div class="fixture-team"><div class="fixture-logo">${homeT.logo||'🏆'}</div><div class="fixture-name">${escapeHtml(homeT.name)}</div></div><div class="fixture-score">${f.played?`${f.homeScore} - ${f.awayScore}`:'VS'}</div><div class="fixture-team"><div class="fixture-logo">${awayT.logo||'🏆'}</div><div class="fixture-name">${escapeHtml(awayT.name)}</div></div></div>${!f.played&&canRecord?`<div class="fixture-actions"><button onclick="openResultModalFirebase('${f.id}',${JSON.stringify(f).replace(/"/g, '&quot;')})">⚽ RECORD RESULT</button></div>`:''}${f.played&&isMy?`<div class="fixture-actions"><button class="secondary" onclick="editMatchResultFirebase('${f.id}')">✏️ EDIT</button></div>`:''}</div>`;
+      }).join('');
+    }
+    // Table
+    const tableContainer = document.getElementById('league-table');
+    tableContainer.innerHTML = `<div class="table-header"><span>#</span><span>TEAM</span><span>P</span><span>W</span><span>D</span><span>L</span><span>GD</span><span>PTS</span></div>${sortedTeams.map((t,idx)=>`<div class="table-row ${idx===0?'top':''}"><span>${idx+1}</span><div class="team-info"><div class="team-mini-logo">${t.logo||'⚽'}</div><span>${escapeHtml(t.name)}</span></div><span>${t.stats.played}</span><span>${t.stats.won}</span><span>${t.stats.drawn}</span><span>${t.stats.lost}</span><span>${t.stats.gf-t.stats.ga}</span><span class="stats-highlight">${t.stats.pts}</span></div>`).join('')}`;
+    // MyTeam
+    const myDiv = document.getElementById('my-team-info');
+    if(!currentFirebaseUser) myDiv.innerHTML='<div class="empty"><div>🔒</div><div>Login to manage your team</div><button class="btn-primary" onclick="openAuthModal()">LOGIN</button></div>';
+    else if(!userTeamId) myDiv.innerHTML='<div class="empty"><div>🏆</div><div>No team yet</div><button class="btn-primary" onclick="openTeamModal()">REGISTER TEAM</button></div>';
+    else{
+      const myT = teamsMap[userTeamId];
+      if(myT) myDiv.innerHTML = `<div style="padding:24px;text-align:center"><div class="team-logo-large" style="width:100px;height:100px;font-size:48px">${myT.logo||'⚽'}</div><h2>${escapeHtml(myT.name)}</h2><div style="color:#8b8b9f">OWNER: ${myT.ownerId}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px"><div style="background:#0a0a0f;border-radius:12px;padding:16px"><div>MATCHES</div><div style="font-size:28px">${myT.stats.played}</div></div><div style="background:#0a0a0f;border-radius:12px;padding:16px"><div>POINTS</div><div style="font-size:28px;color:#ff3366">${myT.stats.pts}</div></div></div><button class="btn-primary" onclick="openTeamModal()" style="margin-top:20px">EDIT TEAM</button></div>`;
+    }
+    // History modal list
+    const historyList = document.getElementById('match-history-list');
+    const pastMatches = fixturesArr.filter(f=>f.played).reverse();
+    if(pastMatches.length) historyList.innerHTML = pastMatches.map(m=>{ const ht=teamsMap[m.homeTeamId]; const at=teamsMap[m.awayTeamId]; return `<div style="background:#0a0a0f;border-radius:12px;padding:12px;margin-bottom:8px"><div>${ht?.logo} ${escapeHtml(ht?.name)} vs ${escapeHtml(at?.name)} ${at?.logo}</div><div style="font-size:18px;font-weight:900;color:#ff3366">${m.homeScore} - ${m.awayScore}</div><div style="font-size:10px">⭐ ${m.playerStats?.length||0} players</div></div>`; }).join('');
+    else historyList.innerHTML = '<div class="empty">No matches yet</div>';
+  }
+  function openTeamModal(){ if(!currentFirebaseUser){ openAuthModal(); return; } document.getElementById('team-modal').classList.add('open'); }
+  function openHistoryModal(){ document.getElementById('history-modal').classList.add('open'); renderAll(); }
+  function previewLogo(){ const logo=document.getElementById('team-logo').value||'⚽'; document.getElementById('logo-preview').textContent=logo.slice(0,2); }
+  function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+  function switchTab(tab){ ['teams','fixtures','table','my-team'].forEach(t=>{ document.getElementById(`page-${t}`).classList.toggle('active', t===tab); }); }
+  function syncData(){ showToast('Live data always synced via Firebase!','success'); renderAll(); }
+  document.getElementById('team-logo')?.addEventListener('input', previewLogo);
+  auth.onAuthStateChanged(async user=>{ currentFirebaseUser = user; if(user) await loadUserTeam(); else userTeamId=null; updateUIAuth(); if(user) startFirebaseListeners(); else if(teamsUnsubscribe){ teamsUnsubscribe(); fixturesUnsubscribe(); } });
+  window.addEventListener('load', ()=>{ if(!auth.currentUser) updateUIAuth(); else startFirebaseListeners(); });
+</script>
+</body>
+</html>
